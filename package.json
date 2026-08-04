@@ -1,0 +1,76 @@
+{
+  "name": "deriv-analytics-pro",
+  "version": "1.0.0",
+  "description": "Professional analytics platform for Deriv markets with AI insights and pattern recognition",
+  "main": "app/main.js",
+  "homepage": "./",
+  "author": "DerivAnalytics",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron . --debug",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:win:portable": "electron-builder --win --portable",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:analytics": "jest app/analytics",
+    "lint": "eslint app/ ui/",
+    "lint:fix": "eslint app/ ui/ --fix",
+    "format": "prettier --write \"app/**/*.js\" \"ui/**/*.{js,html,css}\"",
+    "predist": "npm run test && npm run lint"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "1.1.1",
+    "sqlite3": "^5.1.6",
+    "ws": "^8.14.2",
+    "dotenv": "^16.3.1",
+    "chart.js": "^4.4.0",
+    "chartjs-adapter-date-fns": "^3.0.0"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "eslint": "^8.50.0",
+    "prettier": "^3.0.3"
+  },
+  "build": {
+    "appId": "com.derivanalytics.pro",
+    "productName": "Deriv Analytics Pro",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "files": [
+      "app/**/*",
+      "ui/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
