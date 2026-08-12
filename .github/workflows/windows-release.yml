@@ -49,6 +49,10 @@ jobs:
             npm install --no-audit --no-fund
           }
 
+      - name: Run core integration tests
+        shell: pwsh
+        run: npm test -- --runInBand
+
       - name: Verify package metadata
         shell: pwsh
         run: |
