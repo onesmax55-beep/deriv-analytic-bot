@@ -41,8 +41,10 @@
   "build": {
     "appId": "com.derivanalytics.pro",
     "productName": "Deriv Analytics Pro",
+    "asar": true,
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "assets",
+      "output": "dist"
     },
     "files": [
       "app/**/*",
@@ -68,6 +70,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
