@@ -27,6 +27,19 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup Python 3.11 for native modules
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure npm Python path
+        shell: pwsh
+        run: |
+          $python = (Get-Command python).Source
+          npm config set python "$python"
+          python --version
+          npm --version
+
       - name: Install dependencies
         shell: pwsh
         run: |
