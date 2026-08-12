@@ -50,10 +50,31 @@ jobs:
           }
 
       - name: Verify package metadata
-        run: npm run build:win -- --help
+        shell: pwsh
+        run: |
+          node -e "const p=require('./package.json'); if(p.main !== 'app/main.js') process.exit(1); console.log('entry:', p.main)"
+          if (!(Test-Path app/main.js)) { throw 'Missing app/main.js' }
+          if (!(Test-Path app/preload.js)) { throw 'Missing app/preload.js' }
+          if (!(Test-Path app/index.html)) { throw 'Missing app/index.html' }
 
       - name: Build Windows x64 installer
         run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Runtime smoke test - portable executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'dist/Deriv Analytics Pro 1.0.0.exe'
+          if (!(Test-Path $exe)) { throw "Portable executable not found: $exe" }
+          $proc = Start-Process -FilePath $exe -ArgumentList '--disable-gpu','--no-sandbox' -PassThru
+          try {
+            Start-Sleep -Seconds 15
+            if ($proc.HasExited) { throw "Application exited during smoke test with code $($proc.ExitCode)" }
+            Write-Host "Runtime smoke test passed. PID=$($proc.Id)"
+          } finally {
+            if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+          }
 
       - name: List and verify release artifacts
         shell: pwsh
