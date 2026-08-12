@@ -1,0 +1,62 @@
+name: Windows Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies and create lockfile when absent
+        shell: pwsh
+        run: |
+          if (Test-Path package-lock.json) {
+            npm ci
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+
+      - name: Verify package metadata
+        run: npm run build:win -- --help
+
+      - name: Build Windows x64 installer
+        run: npm run build:win
+
+      - name: List release artifacts
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist)) { throw 'dist directory was not created' }
+          Get-ChildItem dist -File | Format-Table Name,Length
+          $exes = Get-ChildItem dist -Filter *.exe -File
+          if ($exes.Count -eq 0) { throw 'No Windows installer artifact was produced' }
+          foreach ($exe in $exes) {
+            if ($exe.Length -lt 1KB) { throw "Suspiciously small installer: $($exe.Name)" }
+            $hash = Get-FileHash $exe.FullName -Algorithm SHA256
+            "$($exe.Name) SHA256=$($hash.Hash)"
+          }
+
+      - name: Upload Windows installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deriv-analytics-pro-windows-${{ github.sha }}
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
