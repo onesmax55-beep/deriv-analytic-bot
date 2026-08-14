@@ -18,6 +18,7 @@ class ConnectionManager extends EventEmitter {
     super();
     this.options = options;
     this.state = CONNECTION_STATE.DISCONNECTED;
+    this.isDisconnecting = false;
 
     // Initialize components
     this.client = new DerivClient({
@@ -89,6 +90,7 @@ class ConnectionManager extends EventEmitter {
       return;
     }
 
+    this.isDisconnecting = false;
     this.setState(CONNECTION_STATE.CONNECTING);
 
     try {
@@ -103,13 +105,19 @@ class ConnectionManager extends EventEmitter {
   }
 
   /**
-   * Disconnect from Deriv
+   * Disconnect from Deriv without triggering automatic reconnection
    */
   async disconnect() {
+    this.isDisconnecting = true;
     this.heartbeat.stop();
     this.reconnectManager.cancel();
-    await this.client.disconnect();
-    this.setState(CONNECTION_STATE.DISCONNECTED);
+
+    try {
+      await this.client.disconnect();
+    } finally {
+      this.setState(CONNECTION_STATE.DISCONNECTED);
+      this.isDisconnecting = false;
+    }
   }
 
   /**
@@ -176,6 +184,7 @@ class ConnectionManager extends EventEmitter {
    * Handle client connected event
    */
   onClientConnected() {
+    this.isDisconnecting = false;
     this.setState(CONNECTION_STATE.CONNECTED);
     this.reconnectManager.reset();
     this.heartbeat.start(() => this.sendPing());
@@ -186,12 +195,16 @@ class ConnectionManager extends EventEmitter {
    * Handle client disconnected event
    */
   onClientDisconnected() {
-    if (this.state === CONNECTION_STATE.CLOSED) return;
-
-    this.setState(CONNECTION_STATE.RECONNECTING);
     this.heartbeat.stop();
 
-    // Attempt reconnection
+    if (this.isDisconnecting || this.state === CONNECTION_STATE.CLOSED) {
+      this.setState(CONNECTION_STATE.DISCONNECTED);
+      return;
+    }
+
+    this.setState(CONNECTION_STATE.RECONNECTING);
+
+    // Attempt reconnection for unexpected disconnects only.
     this.reconnectManager.attemptReconnect(async () => {
       await this.client.connect();
     });
