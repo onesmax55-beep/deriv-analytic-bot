@@ -32,11 +32,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Configure npm Python path
+      - name: Verify build toolchain
         shell: pwsh
         run: |
-          $python = (Get-Command python).Source
-          npm config set python "$python"
           python --version
           npm --version
 
