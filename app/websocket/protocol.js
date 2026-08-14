@@ -18,11 +18,11 @@ const MESSAGE_TYPES = {
 };
 
 const TICK_STREAMS = {
-  R_50: 'R_50',      // Volatility 50 Index
-  R_100: 'R_100',    // Volatility 100 Index
-  FRXEURUSD: 'frxEURUSD',  // EUR/USD
-  FRXGBPUSD: 'frxGBPUSD',  // GBP/USD
-  FRXUSDJPY: 'frxUSDJPY',  // USD/JPY
+  R_50: 'R_50',
+  R_100: 'R_100',
+  FRXEURUSD: 'frxEURUSD',
+  FRXGBPUSD: 'frxGBPUSD',
+  FRXUSDJPY: 'frxUSDJPY',
 };
 
 const SUBSCRIPTION_STATUS = {
@@ -51,15 +51,12 @@ const ERROR_CODES = {
 };
 
 /**
- * Generate unique request ID
+ * Generate a numeric request ID as required by the Deriv API contract.
  */
 function generateRequestId() {
-  return Math.floor(Math.random() * 1000000000).toString();
+  return Math.floor(Math.random() * 1000000000);
 }
 
-/**
- * Build a Deriv API request
- */
 function buildRequest(type, params = {}) {
   return {
     ...params,
@@ -68,9 +65,6 @@ function buildRequest(type, params = {}) {
   };
 }
 
-/**
- * Parse a Deriv API response
- */
 function parseResponse(data) {
   try {
     return JSON.parse(data);
