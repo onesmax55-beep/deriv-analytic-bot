@@ -16,6 +16,7 @@ class Sidebar {
     ];
     this.panels = [
       { id: 'dashboard', name: 'Dashboard', icon: '⊞' },
+      { id: 'market-scanner', name: 'Market Scanner', icon: '◈' },
       { id: 'live-ticks', name: 'Live Ticks', icon: '📊' },
       { id: 'even-odd', name: 'Even/Odd', icon: '◯' },
       { id: 'rise-fall', name: 'Rise/Fall', icon: '⬆⬇' },
@@ -27,129 +28,23 @@ class Sidebar {
     this.listeners = new Map();
     this.render();
   }
-
-  /**
-   * Render sidebar
-   */
   render() {
     if (!this.container) return;
-
-    const symbolOptions = this.symbols
-      .map(
-        (s) => `
-      <option value="${s.id}" ${s.id === this.selectedSymbol ? 'selected' : ''}>
-        ${s.name}
-      </option>
-    `
-      )
-      .join('');
-
-    const panelItems = this.panels
-      .map(
-        (p) => `
-      <button class="sidebar-item ${p.id === this.activePanel ? 'active' : ''}" 
-              data-panel="${p.id}">
-        <span class="icon">${p.icon}</span>
-        <span class="label">${p.name}</span>
-      </button>
-    `
-      )
-      .join('');
-
-    this.container.innerHTML = `
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <h2>Deriv Analytics</h2>
-        </div>
-        
-        <div class="sidebar-section">
-          <label>Market</label>
-          <select class="symbol-selector" id="symbol-selector">
-            ${symbolOptions}
-          </select>
-        </div>
-        
-        <div class="sidebar-section">
-          <label>View</label>
-          <div class="panel-list">
-            ${panelItems}
-          </div>
-        </div>
-      </div>
-    `;
-
+    const symbolOptions = this.symbols.map((s) => `<option value="${s.id}" ${s.id === this.selectedSymbol ? 'selected' : ''}>${s.name}</option>`).join('');
+    const panelItems = this.panels.map((p) => `<button class="sidebar-item ${p.id === this.activePanel ? 'active' : ''}" data-panel="${p.id}"><span class="icon">${p.icon}</span><span class="label">${p.name}</span></button>`).join('');
+    this.container.innerHTML = `<div class="sidebar"><div class="sidebar-header"><h2>Deriv Analytics</h2></div><div class="sidebar-section"><label>Market</label><select class="symbol-selector" id="symbol-selector">${symbolOptions}</select></div><div class="sidebar-section"><label>View</label><div class="panel-list">${panelItems}</div></div></div>`;
     this.attachEventListeners();
   }
-
-  /**
-   * Attach event listeners
-   */
   attachEventListeners() {
     const symbolSelector = this.container.querySelector('#symbol-selector');
-    if (symbolSelector) {
-      symbolSelector.addEventListener('change', (e) => {
-        this.setSelectedSymbol(e.target.value);
-        this.emit('symbol-changed', e.target.value);
-      });
-    }
-
-    const panelButtons = this.container.querySelectorAll('.sidebar-item');
-    panelButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const panelId = btn.dataset.panel;
-        this.setActivePanel(panelId);
-        this.emit('panel-changed', panelId);
-      });
-    });
+    if (symbolSelector) symbolSelector.addEventListener('change', (e) => { this.setSelectedSymbol(e.target.value); this.emit('symbol-changed', e.target.value); });
+    this.container.querySelectorAll('.sidebar-item').forEach((btn) => btn.addEventListener('click', () => { const panelId = btn.dataset.panel; this.setActivePanel(panelId); this.emit('panel-changed', panelId); }));
   }
-
-  /**
-   * Set active panel
-   */
-  setActivePanel(panelId) {
-    this.activePanel = panelId;
-    this.render();
-  }
-
-  /**
-   * Set selected symbol
-   */
-  setSelectedSymbol(symbol) {
-    this.selectedSymbol = symbol;
-  }
-
-  /**
-   * Get active panel
-   */
-  getActivePanel() {
-    return this.activePanel;
-  }
-
-  /**
-   * Get selected symbol
-   */
-  getSelectedSymbol() {
-    return this.selectedSymbol;
-  }
-
-  /**
-   * Subscribe to events
-   */
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event).push(callback);
-  }
-
-  /**
-   * Emit event
-   */
-  emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach((cb) => cb(data));
-    }
-  }
+  setActivePanel(panelId) { this.activePanel = panelId; this.render(); }
+  setSelectedSymbol(symbol) { this.selectedSymbol = symbol; }
+  getActivePanel() { return this.activePanel; }
+  getSelectedSymbol() { return this.selectedSymbol; }
+  on(event, callback) { if (!this.listeners.has(event)) this.listeners.set(event, []); this.listeners.get(event).push(callback); }
+  emit(event, data) { if (this.listeners.has(event)) this.listeners.get(event).forEach((cb) => cb(data)); }
 }
-
 module.exports = Sidebar;
