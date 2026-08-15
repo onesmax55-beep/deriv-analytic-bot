@@ -13,13 +13,16 @@ class MessageRouter extends EventEmitter {
   }
 
   /**
-   * Register a handler for a message type
+   * Register a handler for a message type.
+   * Keep EventEmitter semantics so callers can also emit(messageType, data)
+   * directly in integration tests and internal adapters.
    */
   on(messageType, handler) {
     if (!this.handlers.has(messageType)) {
       this.handlers.set(messageType, []);
     }
     this.handlers.get(messageType).push(handler);
+    return super.on(messageType, handler);
   }
 
   /**
@@ -48,14 +51,12 @@ class MessageRouter extends EventEmitter {
    */
   route(message) {
     try {
-      // Check if this is a response to a specific request
       if (message.req_id && this.requestHandlers.has(message.req_id)) {
         const handler = this.requestHandlers.get(message.req_id);
         handler(message);
         return;
       }
 
-      // Determine message type and route to handlers
       const messageType = this.getMessageType(message);
       if (messageType && this.handlers.has(messageType)) {
         const handlers = this.handlers.get(messageType);
@@ -71,7 +72,6 @@ class MessageRouter extends EventEmitter {
         });
       }
 
-      // Always emit raw message
       this.emit('message', message);
     } catch (error) {
       this.emit('routing-error', {
@@ -81,9 +81,6 @@ class MessageRouter extends EventEmitter {
     }
   }
 
-  /**
-   * Determine message type from message structure
-   */
   getMessageType(message) {
     if (message.error) return 'error';
     if (message.pong) return 'pong';
@@ -97,12 +94,10 @@ class MessageRouter extends EventEmitter {
     return null;
   }
 
-  /**
-   * Clear all handlers
-   */
   clear() {
     this.handlers.clear();
     this.requestHandlers.clear();
+    this.removeAllListeners();
   }
 }
 
