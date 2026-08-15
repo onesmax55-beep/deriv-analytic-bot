@@ -41,7 +41,9 @@ class MarketScanner extends EventEmitter {
       throw new TypeError('symbols must be an array');
     }
 
-    return [...new Set(symbols.map((symbol) => this.normalizeSymbol(symbol)).filter(Boolean))];
+    return [...new Set(
+      symbols.map((symbol) => this.normalizeSymbol(symbol)).filter(Boolean)
+    )];
   }
 
   async start(symbols = this.defaultSymbols) {
@@ -65,7 +67,7 @@ class MarketScanner extends EventEmitter {
     } catch (error) {
       this.running = false;
       await this.unsubscribeAll().catch(() => {});
-      this.emit('error', error);
+      this.emit('scanner-error', error);
       throw error;
     }
   }
@@ -95,8 +97,12 @@ class MarketScanner extends EventEmitter {
       return this.getStatus();
     }
 
-    const removed = [...this.symbols].filter((symbol) => !requestedSet.has(symbol));
-    const added = requestedSymbols.filter((symbol) => !this.symbols.has(symbol));
+    const removed = [...this.symbols].filter(
+      (symbol) => !requestedSet.has(symbol)
+    );
+    const added = requestedSymbols.filter(
+      (symbol) => !this.symbols.has(symbol)
+    );
 
     for (const symbol of removed) {
       await this.unsubscribe(symbol);
@@ -132,6 +138,7 @@ class MarketScanner extends EventEmitter {
       await this.connectionManager.subscribe(symbol);
       market.status = 'active';
       market.subscribedAt = Date.now();
+      market.error = null;
       this.symbols.add(symbol);
       this.emit('market-active', this.getMarket(symbol));
       return market;
@@ -220,7 +227,9 @@ class MarketScanner extends EventEmitter {
 
   getMarket(symbol) {
     const market = this.markets.get(this.normalizeSymbol(symbol));
-    return market ? { ...market, lastTick: market.lastTick && { ...market.lastTick } } : null;
+    return market
+      ? { ...market, lastTick: market.lastTick && { ...market.lastTick } }
+      : null;
   }
 
   getMarkets() {
