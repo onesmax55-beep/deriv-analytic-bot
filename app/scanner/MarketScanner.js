@@ -1,32 +1,23 @@
 /**
  * MarketScanner
- *
- * Coordinates simultaneous market subscriptions through the existing
- * ConnectionManager. This first scanner layer deliberately owns lifecycle
- * and per-market state only; analytics and ranking are layered on later.
+ * Coordinates simultaneous market subscriptions and isolated analytics.
  */
 
 const EventEmitter = require('events');
+const MarketAnalytics = require('./MarketAnalytics');
 
 const DEFAULT_SYMBOLS = ['R_50', 'R_75', 'R_100', 'R_200'];
 
 class MarketScanner extends EventEmitter {
   constructor(options = {}) {
     super();
-
-    if (!options.connectionManager) {
-      throw new Error('MarketScanner requires a connectionManager');
-    }
-
+    if (!options.connectionManager) throw new Error('MarketScanner requires a connectionManager');
     this.connectionManager = options.connectionManager;
-    this.defaultSymbols = this.normalizeSymbols(
-      options.defaultSymbols || DEFAULT_SYMBOLS
-    );
+    this.defaultSymbols = this.normalizeSymbols(options.defaultSymbols || DEFAULT_SYMBOLS);
     this.symbols = new Set();
     this.markets = new Map();
     this.running = false;
     this.tickHandler = (tick) => this.handleTick(tick);
-
     this.connectionManager.on('tick', this.tickHandler);
   }
 
@@ -37,46 +28,32 @@ class MarketScanner extends EventEmitter {
   }
 
   normalizeSymbols(symbols) {
-    if (!Array.isArray(symbols)) {
-      throw new TypeError('symbols must be an array');
-    }
-
-    return [...new Set(
-      symbols.map((symbol) => this.normalizeSymbol(symbol)).filter(Boolean)
-    )];
+    if (!Array.isArray(symbols)) throw new TypeError('symbols must be an array');
+    return [...new Set(symbols.map((symbol) => this.normalizeSymbol(symbol)).filter(Boolean))];
   }
 
   async start(symbols = this.defaultSymbols) {
-    const requestedSymbols = this.normalizeSymbols(symbols);
-
+    const requested = this.normalizeSymbols(symbols);
     if (this.running) {
-      if (this.sameSymbols(requestedSymbols)) {
-        return this.getStatus();
-      }
-      await this.setMarkets(requestedSymbols);
+      if (!this.sameSymbols(requested)) await this.setMarkets(requested);
       return this.getStatus();
     }
-
     this.running = true;
-    this.emit('starting', { symbols: requestedSymbols });
-
+    this.emit('starting', { symbols: requested });
     try {
-      await this.applySubscriptions(requestedSymbols);
+      await this.applySubscriptions(requested);
       this.emit('started', this.getStatus());
       return this.getStatus();
     } catch (error) {
       this.running = false;
       await this.unsubscribeAll().catch(() => {});
-      this.emit('scanner-error', error);
+      this.emit('error', error);
       throw error;
     }
   }
 
   async stop() {
-    if (!this.running && this.symbols.size === 0) {
-      return this.getStatus();
-    }
-
+    if (!this.running && this.symbols.size === 0) return this.getStatus();
     this.emit('stopping', this.getStatus());
     await this.unsubscribeAll();
     this.running = false;
@@ -85,33 +62,20 @@ class MarketScanner extends EventEmitter {
   }
 
   async setMarkets(symbols) {
-    const requestedSymbols = this.normalizeSymbols(symbols);
-    const requestedSet = new Set(requestedSymbols);
-
+    const requested = this.normalizeSymbols(symbols);
+    const requestedSet = new Set(requested);
     if (!this.running) {
       this.symbols = requestedSet;
-      for (const symbol of requestedSymbols) {
-        this.ensureMarket(symbol);
-      }
+      requested.forEach((symbol) => this.ensureMarket(symbol));
       this.emit('markets-changed', this.getMarkets());
       return this.getStatus();
     }
-
-    const removed = [...this.symbols].filter(
-      (symbol) => !requestedSet.has(symbol)
-    );
-    const added = requestedSymbols.filter(
-      (symbol) => !this.symbols.has(symbol)
-    );
-
-    for (const symbol of removed) {
-      await this.unsubscribe(symbol);
+    for (const symbol of [...this.symbols]) {
+      if (!requestedSet.has(symbol)) await this.unsubscribe(symbol);
     }
-
-    for (const symbol of added) {
-      await this.subscribe(symbol);
+    for (const symbol of requested) {
+      if (!this.symbols.has(symbol)) await this.subscribe(symbol);
     }
-
     this.emit('markets-changed', this.getMarkets());
     return this.getStatus();
   }
@@ -123,25 +87,21 @@ class MarketScanner extends EventEmitter {
     return this.start(symbols);
   }
 
-  async applySubscriptions(requestedSymbols) {
-    for (const symbol of requestedSymbols) {
-      await this.subscribe(symbol);
-    }
+  async applySubscriptions(symbols) {
+    for (const symbol of symbols) await this.subscribe(symbol);
   }
 
   async subscribe(symbol) {
-    if (this.symbols.has(symbol)) return this.markets.get(symbol);
-
+    if (this.symbols.has(symbol)) return this.getMarket(symbol);
     const market = this.ensureMarket(symbol);
-
     try {
       await this.connectionManager.subscribe(symbol);
       market.status = 'active';
-      market.subscribedAt = Date.now();
       market.error = null;
+      market.subscribedAt = Date.now();
       this.symbols.add(symbol);
       this.emit('market-active', this.getMarket(symbol));
-      return market;
+      return this.getMarket(symbol);
     } catch (error) {
       market.status = 'error';
       market.error = error.message;
@@ -152,7 +112,6 @@ class MarketScanner extends EventEmitter {
 
   async unsubscribe(symbol) {
     if (!this.symbols.has(symbol)) return;
-
     try {
       await this.connectionManager.unsubscribe(symbol);
     } finally {
@@ -167,18 +126,11 @@ class MarketScanner extends EventEmitter {
   }
 
   async unsubscribeAll() {
-    const symbols = [...this.symbols];
     const failures = [];
-
-    for (const symbol of symbols) {
-      try {
-        await this.unsubscribe(symbol);
-      } catch (error) {
-        failures.push({ symbol, error });
-      }
+    for (const symbol of [...this.symbols]) {
+      try { await this.unsubscribe(symbol); } catch (error) { failures.push({ symbol, error }); }
     }
-
-    if (failures.length > 0) {
+    if (failures.length) {
       const error = new Error('One or more market unsubscriptions failed');
       error.failures = failures;
       throw error;
@@ -188,20 +140,14 @@ class MarketScanner extends EventEmitter {
   handleTick(tick) {
     const symbol = this.normalizeSymbol(tick && tick.symbol);
     if (!symbol || !this.symbols.has(symbol)) return;
-
     const market = this.ensureMarket(symbol);
-    market.lastTick = {
-      symbol,
-      quote: tick.quote,
-      time: tick.time,
-    };
+    market.lastTick = { symbol, quote: tick.quote, time: tick.time };
     market.tickCount += 1;
     market.updatedAt = Date.now();
-
-    this.emit('market-tick', {
-      market: this.getMarket(symbol),
-      tick: { ...market.lastTick },
-    });
+    market.analytics.addTick(tick.quote);
+    const snapshot = this.getMarket(symbol);
+    this.emit('market-tick', { market: snapshot, tick: { ...market.lastTick }, analysis: snapshot.analysis });
+    this.emit('analysis-updated', { symbol, analysis: snapshot.analysis });
   }
 
   ensureMarket(symbol) {
@@ -215,41 +161,40 @@ class MarketScanner extends EventEmitter {
         tickCount: 0,
         lastTick: null,
         error: null,
+        analytics: new MarketAnalytics({ symbol, analyzerOptions: this.analyzerOptions }),
       });
     }
     return this.markets.get(symbol);
   }
 
   sameSymbols(symbols) {
-    if (symbols.length !== this.symbols.size) return false;
-    return symbols.every((symbol) => this.symbols.has(symbol));
+    return symbols.length === this.symbols.size && symbols.every((symbol) => this.symbols.has(symbol));
   }
 
   getMarket(symbol) {
     const market = this.markets.get(this.normalizeSymbol(symbol));
-    return market
-      ? { ...market, lastTick: market.lastTick && { ...market.lastTick } }
-      : null;
+    if (!market) return null;
+    return {
+      symbol: market.symbol,
+      status: market.status,
+      subscribedAt: market.subscribedAt,
+      unsubscribedAt: market.unsubscribedAt,
+      updatedAt: market.updatedAt,
+      tickCount: market.tickCount,
+      lastTick: market.lastTick && { ...market.lastTick },
+      error: market.error,
+      analysis: market.analytics.getSnapshot(),
+    };
   }
 
   getMarkets() {
-    return [...this.markets.values()].map((market) => ({
-      ...market,
-      lastTick: market.lastTick && { ...market.lastTick },
-    }));
+    return [...this.markets.keys()].map((symbol) => this.getMarket(symbol));
   }
 
-  getActiveSymbols() {
-    return [...this.symbols];
-  }
+  getActiveSymbols() { return [...this.symbols]; }
 
   getStatus() {
-    return {
-      running: this.running,
-      symbols: this.getActiveSymbols(),
-      marketCount: this.symbols.size,
-      markets: this.getMarkets(),
-    };
+    return { running: this.running, symbols: this.getActiveSymbols(), marketCount: this.symbols.size, markets: this.getMarkets() };
   }
 
   dispose() {
