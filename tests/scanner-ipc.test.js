@@ -15,13 +15,16 @@ describe('scanner IPC', () => {
       setMarkets: jest.fn((markets) => markets),
       refresh: jest.fn(() => ({ refreshed: true })),
     };
+    const settingsManager = { set: jest.fn(async (_key, value) => value), get: jest.fn(async () => ['R_50']) };
+    const connectionManager = { getStatus: jest.fn(() => ({ connected: true })), connect: jest.fn() };
 
-    registerIPC(null, { marketScanner: scanner });
+    await registerIPC(null, { marketScanner: scanner, settingsManager, connectionManager });
     expect(ipcMain.handlers.has('scanner:start')).toBe(true);
 
     const result = await ipcMain.handlers.get('scanner:set-markets')(null, ['R_50', 'R_75']);
     expect(result).toEqual(['R_50', 'R_75']);
     expect(scanner.setMarkets).toHaveBeenCalledWith(['R_50', 'R_75']);
+    expect(settingsManager.set).toHaveBeenCalledWith('scannerMarkets', ['R_50', 'R_75']);
 
     await expect(ipcMain.handlers.get('scanner:set-markets')(null, [])).rejects.toThrow();
     await expect(ipcMain.handlers.get('scanner:set-markets')(null, ['bad-symbol!'])).rejects.toThrow();
