@@ -1,7 +1,8 @@
 'use strict';
 const { ipcMain } = require('electron');
 const channels = ['app:get-status','session:list','session:get','replay:start','replay:pause','replay:resume','replay:stop','replay:speed','replay:status','replay:results','settings:get-all','scanner:start','scanner:stop','scanner:get-status','scanner:get-markets','scanner:set-markets','scanner:refresh'];
-let registered = false; let services = null;
+const scannerEvents = ['market-tick','analysis-updated','market-active','market-inactive','market-error','markets-changed','starting','started','stopping','stopped'];
+let registered = false; let services = null; let windowRef = null; let scannerListeners = [];
 function requireScanner() { if (!services?.marketScanner) throw new Error('Market scanner is unavailable'); return services.marketScanner; }
 function validateMarkets(markets) {
   if (!Array.isArray(markets) || markets.length === 0) throw new Error('At least one market is required');
@@ -9,8 +10,15 @@ function validateMarkets(markets) {
   return [...new Set(markets.map((symbol) => { if (typeof symbol !== 'string' || !/^[A-Za-z0-9_]+$/.test(symbol.trim())) throw new Error('Invalid market symbol'); return symbol.trim().toUpperCase(); }))];
 }
 async function ensureConnection() { const connection = services?.connectionManager; if (!connection) throw new Error('Connection manager is unavailable'); if (!connection.getStatus().connected) await connection.connect(); }
-async function registerIPC(_mainWindow, injected) {
-  cleanupIPC(); services = injected;
+function attachScannerEvents(scanner) {
+  scannerEvents.forEach((eventName) => {
+    const listener = (payload) => { if (windowRef?.webContents && !windowRef.isDestroyed()) windowRef.webContents.send(`scanner:${eventName}`, payload); };
+    scanner.on(eventName, listener); scannerListeners.push({ eventName, listener });
+  });
+}
+function detachScannerEvents() { const scanner = services?.marketScanner; if (scanner) scannerListeners.forEach(({ eventName, listener }) => scanner.off(eventName, listener)); scannerListeners = []; }
+async function registerIPC(mainWindow, injected) {
+  cleanupIPC(); services = injected; windowRef = mainWindow;
   ipcMain.handle('app:get-status', async () => ({ name: 'Deriv Analytics Pro', version: require('../../package.json').version, databaseConnected: Boolean(services.database?.isConnected), analytics: services.analyticsEngine?.getStatus?.() || null }));
   ipcMain.handle('session:list', async () => services.sessionRepository.getAllSessions());
   ipcMain.handle('session:get', async (_event, sessionId) => { if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('Invalid session id'); return services.sessionRepository.getSession(sessionId); });
@@ -20,7 +28,8 @@ async function registerIPC(_mainWindow, injected) {
   ipcMain.handle('scanner:start', async () => { await ensureConnection(); const markets = await services.settingsManager.get('scannerMarkets'); return requireScanner().start(Array.isArray(markets) && markets.length ? markets : undefined); });
   ipcMain.handle('scanner:stop', () => requireScanner().stop()); ipcMain.handle('scanner:get-status', () => requireScanner().getStatus()); ipcMain.handle('scanner:get-markets', () => requireScanner().getMarkets());
   ipcMain.handle('scanner:set-markets', async (_event, markets) => { const normalized = validateMarkets(markets); await services.settingsManager.set('scannerMarkets', normalized); return requireScanner().setMarkets(normalized); });
-  ipcMain.handle('scanner:refresh', () => requireScanner().refresh()); registered = true;
+  ipcMain.handle('scanner:refresh', () => requireScanner().refresh());
+  attachScannerEvents(requireScanner()); registered = true;
 }
-function cleanupIPC() { if (!registered) return; for (const channel of channels) ipcMain.removeHandler(channel); registered = false; services = null; }
+function cleanupIPC() { detachScannerEvents(); if (!registered) { services = null; windowRef = null; return; } for (const channel of channels) ipcMain.removeHandler(channel); registered = false; services = null; windowRef = null; }
 module.exports = { registerIPC, cleanupIPC, validateMarkets };
