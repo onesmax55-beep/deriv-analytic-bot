@@ -23,7 +23,6 @@
     "predist": "npm run test && npm run lint"
   },
   "dependencies": {
-    "electron-squirrel-startup": "1.1.1",
     "sqlite3": "^5.1.6",
     "ws": "^8.14.2",
     "dotenv": "^16.3.1",
@@ -41,8 +40,10 @@
   "build": {
     "appId": "com.derivanalytics.pro",
     "productName": "Deriv Analytics Pro",
+    "asar": true,
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "assets",
+      "output": "dist"
     },
     "files": [
       "app/**/*",
@@ -52,22 +53,13 @@
     ],
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
+        {"target": "nsis", "arch": ["x64"]},
+        {"target": "portable", "arch": ["x64"]}
       ]
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true

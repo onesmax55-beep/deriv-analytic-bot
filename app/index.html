@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://ws.derivws.com wss://ws.derivws.com;">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deriv Analytics Pro</title>
+  <style>
+    :root { color-scheme: dark; font-family: Segoe UI, system-ui, sans-serif; }
+    body { margin: 0; background: #0f1419; color: #e2e8f0; }
+    header { padding: 18px 24px; border-bottom: 1px solid #2d3748; display:flex; justify-content:space-between; }
+    main { padding: 24px; max-width: 1400px; margin: auto; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+    .card { background:#1a1f29; border:1px solid #2d3748; border-radius:10px; padding:18px; }
+    .value { font-size:28px; font-weight:700; margin-top:8px; }
+    button { background:#0ea5e9; color:white; border:0; border-radius:6px; padding:9px 14px; cursor:pointer; }
+    button.secondary { background:#2d3748; }
+    pre { white-space:pre-wrap; overflow:auto; max-height:320px; }
+    #error { color:#f59e0b; min-height:24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Deriv Analytics Pro</strong>
+    <span id="version">Loading…</span>
+  </header>
+  <main>
+    <div id="error"></div>
+    <div class="grid">
+      <section class="card"><div>Database</div><div class="value" id="db">—</div></section>
+      <section class="card"><div>Symbol</div><div class="value" id="symbol">R_100</div></section>
+      <section class="card"><div>Ticks analysed</div><div class="value" id="ticks">0</div></section>
+      <section class="card"><div>Confidence</div><div class="value" id="confidence">0%</div></section>
+    </div>
+    <section class="card" style="margin-top:16px">
+      <h2>Replay</h2>
+      <button id="demo">Run demo replay</button>
+      <button class="secondary" id="pause">Pause</button>
+      <button class="secondary" id="resume">Resume</button>
+      <button class="secondary" id="stop">Stop</button>
+      <pre id="replay">No replay running.</pre>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <h2>Sessions</h2>
+      <button id="refresh">Refresh sessions</button>
+      <pre id="sessions">Loading…</pre>
+    </section>
+  </main>
+  <script src="renderer.js"></script>
+</body>
+</html>
