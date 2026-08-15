@@ -2,44 +2,31 @@
 
 const { ipcMain } = require('electron');
 
-const channels = [
-  'app:get-status',
-  'session:list',
-  'session:get',
-  'replay:start',
-  'replay:pause',
-  'replay:resume',
-  'replay:stop',
-  'replay:speed',
-  'replay:status',
-  'replay:results',
-  'settings:get-all',
-];
-
+const channels = ['app:get-status','session:list','session:get','replay:start','replay:pause','replay:resume','replay:stop','replay:speed','replay:status','replay:results','settings:get-all','scanner:start','scanner:stop','scanner:get-status','scanner:get-markets','scanner:set-markets','scanner:refresh'];
 let registered = false;
 let services = null;
+
+function requireScanner() {
+  if (!services?.marketScanner) throw new Error('Market scanner is unavailable');
+  return services.marketScanner;
+}
+
+function validateMarkets(markets) {
+  if (!Array.isArray(markets) || markets.length === 0) throw new Error('At least one market is required');
+  if (markets.length > 100) throw new Error('Too many markets');
+  return markets.map((symbol) => {
+    if (typeof symbol !== 'string' || !/^[A-Za-z0-9_]+$/.test(symbol.trim())) throw new Error('Invalid market symbol');
+    return symbol.trim();
+  });
+}
 
 function registerIPC(_mainWindow, injected) {
   cleanupIPC();
   services = injected;
-
-  ipcMain.handle('app:get-status', async () => ({
-    name: 'Deriv Analytics Pro',
-    version: require('../../package.json').version,
-    databaseConnected: Boolean(services.database?.isConnected),
-    analytics: services.analyticsEngine?.getStatus?.() || null,
-  }));
-
+  ipcMain.handle('app:get-status', async () => ({ name: 'Deriv Analytics Pro', version: require('../../package.json').version, databaseConnected: Boolean(services.database?.isConnected), analytics: services.analyticsEngine?.getStatus?.() || null }));
   ipcMain.handle('session:list', async () => services.sessionRepository.getAllSessions());
-  ipcMain.handle('session:get', async (_event, sessionId) => {
-    if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('Invalid session id');
-    return services.sessionRepository.getSession(sessionId);
-  });
-
-  ipcMain.handle('replay:start', async (_event, ticks, symbol) => {
-    if (!Array.isArray(ticks) || ticks.length === 0) throw new Error('Replay ticks are required');
-    return services.playbackController.startReplay(ticks, symbol);
-  });
+  ipcMain.handle('session:get', async (_event, sessionId) => { if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('Invalid session id'); return services.sessionRepository.getSession(sessionId); });
+  ipcMain.handle('replay:start', async (_event, ticks, symbol) => { if (!Array.isArray(ticks) || ticks.length === 0) throw new Error('Replay ticks are required'); return services.playbackController.startReplay(ticks, symbol); });
   ipcMain.handle('replay:pause', () => services.playbackController.pauseReplay());
   ipcMain.handle('replay:resume', () => services.playbackController.resumeReplay());
   ipcMain.handle('replay:stop', () => services.playbackController.stopReplay());
@@ -47,15 +34,14 @@ function registerIPC(_mainWindow, injected) {
   ipcMain.handle('replay:status', () => services.playbackController.getReplayStatus());
   ipcMain.handle('replay:results', () => services.playbackController.getReplayResults());
   ipcMain.handle('settings:get-all', () => services.settingsManager.getAll());
-
+  ipcMain.handle('scanner:start', () => requireScanner().start());
+  ipcMain.handle('scanner:stop', () => requireScanner().stop());
+  ipcMain.handle('scanner:get-status', () => requireScanner().getStatus());
+  ipcMain.handle('scanner:get-markets', () => requireScanner().getMarkets());
+  ipcMain.handle('scanner:set-markets', (_event, markets) => requireScanner().setMarkets(validateMarkets(markets)));
+  ipcMain.handle('scanner:refresh', () => requireScanner().refresh());
   registered = true;
 }
 
-function cleanupIPC() {
-  if (!registered) return;
-  for (const channel of channels) ipcMain.removeHandler(channel);
-  registered = false;
-  services = null;
-}
-
+function cleanupIPC() { if (!registered) return; for (const channel of channels) ipcMain.removeHandler(channel); registered = false; services = null; }
 module.exports = { registerIPC, cleanupIPC };
