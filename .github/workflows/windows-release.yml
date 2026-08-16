@@ -60,7 +60,7 @@ jobs:
           if (!(Test-Path app/index.html)) { throw 'Missing app/index.html' }
 
       - name: Build Windows x64 installer
-        run: npm run build:win
+        run: npm run build:win -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
