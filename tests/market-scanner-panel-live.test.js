@@ -3,11 +3,13 @@ const MarketScannerPanel = require('../app/ui/MarketScannerPanel');
 describe('MarketScannerPanel live updates', () => {
   function createDom() {
     const listeners = new Map();
+    const status = { textContent: '' };
+    const tbody = { innerHTML: '' };
     const container = {
       innerHTML: '',
       querySelector(selector) {
-        if (selector === '.market-scanner-status') return { textContent: '' };
-        if (selector === 'tbody') return { innerHTML: '' };
+        if (selector === '.market-scanner-status') return status;
+        if (selector === 'tbody') return tbody;
         return null;
       },
       querySelectorAll() { return []; },
