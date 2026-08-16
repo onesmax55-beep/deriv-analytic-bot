@@ -1,6 +1,7 @@
 'use strict';
 
 const mockRegistered = new Map();
+const { EventEmitter } = require('events');
 
 jest.mock('electron', () => ({
   ipcMain: {
@@ -12,6 +13,14 @@ jest.mock('electron', () => ({
 const { registerIPC, cleanupIPC } = require('../app/ipc');
 
 describe('IPC acceptance boundary', () => {
+  const scanner = new EventEmitter();
+  scanner.start = jest.fn(async (markets) => ({ started: true, markets: markets || [] }));
+  scanner.stop = jest.fn(() => ({ stopped: true }));
+  scanner.getStatus = jest.fn(() => ({ running: false }));
+  scanner.getMarkets = jest.fn(() => ['R_100']);
+  scanner.setMarkets = jest.fn(async (markets) => ({ markets }));
+  scanner.refresh = jest.fn(async () => ({ refreshed: true }));
+
   const services = {
     database: { isConnected: true },
     analyticsEngine: { getStatus: jest.fn(() => ({ running: true })) },
@@ -28,7 +37,12 @@ describe('IPC acceptance boundary', () => {
       getReplayStatus: jest.fn(() => ({ playing: false })),
       getReplayResults: jest.fn(() => ({ results: [] })),
     },
-    settingsManager: { getAll: jest.fn(async () => ({ theme: 'dark' })) },
+    settingsManager: {
+      getAll: jest.fn(async () => ({ theme: 'dark' })),
+      get: jest.fn(async () => ['R_100']),
+      set: jest.fn(async () => undefined),
+    },
+    marketScanner: scanner,
   };
 
   beforeEach(() => {
@@ -43,6 +57,8 @@ describe('IPC acceptance boundary', () => {
       'app:get-status', 'session:list', 'session:get',
       'replay:start', 'replay:pause', 'replay:resume', 'replay:stop',
       'replay:speed', 'replay:status', 'replay:results', 'settings:get-all',
+      'scanner:start', 'scanner:stop', 'scanner:get-status', 'scanner:get-markets',
+      'scanner:set-markets', 'scanner:refresh',
     ]));
   });
 
