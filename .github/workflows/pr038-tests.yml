@@ -1,0 +1,22 @@
+name: PR-038 Tests
+
+on:
+  push:
+    branches:
+      - pr-038-scanner-configuration
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Focused PR-038 Jest suite
+        run: npm test -- --runInBand tests/scanner-configuration.test.js tests/scanner-ipc.test.js
+      - name: Full Jest regression suite
+        run: npm test -- --runInBand
