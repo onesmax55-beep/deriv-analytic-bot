@@ -26,10 +26,10 @@ async function registerIPC(mainWindow, injected) {
   ipcMain.handle('settings:get-all', () => services.settingsManager.getAll());
   ipcMain.handle('scanner:start', async () => { await ensureConnection(); return requireScanner().start(await requireConfiguration().getMarkets()); });
   ipcMain.handle('scanner:stop', () => requireScanner().stop()); ipcMain.handle('scanner:get-status', () => requireScanner().getStatus()); ipcMain.handle('scanner:get-markets', () => requireScanner().getMarkets());
-  ipcMain.handle('scanner:set-markets', (_event, markets) => requireConfiguration().setMarkets(markets));
+  ipcMain.handle('scanner:set-markets', (_event, markets) => requireConfiguration().setMarkets(validateMarkets(markets)));
   ipcMain.handle('scanner:refresh', () => requireScanner().refresh());
   ipcMain.handle('scanner:config:get', () => requireConfiguration().getMarkets());
-  ipcMain.handle('scanner:config:set', (_event, markets) => requireConfiguration().setMarkets(markets));
+  ipcMain.handle('scanner:config:set', (_event, markets) => requireConfiguration().setMarkets(validateMarkets(markets)));
   ipcMain.handle('scanner:config:reset', () => requireConfiguration().reset());
   attachScannerEvents(requireScanner()); registered = true;
 }
