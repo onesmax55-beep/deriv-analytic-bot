@@ -10,8 +10,9 @@ const SettingsRepository = require('./database/repositories/SettingsRepository')
 const SettingsManager = require('./settings/SettingsManager');
 const ConnectionManager = require('./websocket/ConnectionManager');
 const MarketScanner = require('./scanner/MarketScanner');
+const ScannerConfiguration = require('./scanner/ScannerConfiguration');
 const { registerIPC, cleanupIPC } = require('./ipc');
-let mainWindow = null, database = null, analyticsEngine = null, replayEngine = null, playbackController = null, sessionRepository = null, settingsManager = null, connectionManager = null, marketScanner = null, shuttingDown = false;
+let mainWindow = null, database = null, analyticsEngine = null, replayEngine = null, playbackController = null, sessionRepository = null, settingsManager = null, connectionManager = null, marketScanner = null, scannerConfiguration = null, shuttingDown = false;
 async function initializeServices() {
   const dbPath = path.join(app.getPath('userData'), 'deriv-analytics.sqlite');
   database = new Database({ dbPath }); await database.connect();
@@ -21,6 +22,7 @@ async function initializeServices() {
   connectionManager = new ConnectionManager({});
   const scannerMarkets = await settingsManager.get('scannerMarkets');
   marketScanner = new MarketScanner({ connectionManager, defaultSymbols: Array.isArray(scannerMarkets) && scannerMarkets.length ? scannerMarkets : undefined });
+  scannerConfiguration = new ScannerConfiguration({ settingsManager, marketScanner });
 }
 function createMainWindow() {
   mainWindow = new BrowserWindow({ width: 1440, height: 900, minWidth: 1100, minHeight: 700, backgroundColor: '#0f1419', webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false } });
@@ -28,7 +30,7 @@ function createMainWindow() {
 }
 async function startApplication() {
   await initializeServices();
-  await registerIPC(mainWindow, { database, analyticsEngine, replayEngine, playbackController, sessionRepository, settingsManager, connectionManager, marketScanner });
+  await registerIPC(mainWindow, { database, analyticsEngine, replayEngine, playbackController, sessionRepository, settingsManager, connectionManager, marketScanner, scannerConfiguration });
   createMainWindow();
 }
 async function shutdownApplication() {
@@ -40,4 +42,4 @@ app.whenReady().then(startApplication).catch((error) => { console.error('[main] 
 app.on('before-quit', async (event) => { if (shuttingDown) return; event.preventDefault(); await shutdownApplication(); app.exit(0); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createMainWindow(); });
-module.exports = { createMainWindow, initializeServices, shutdownApplication, getServices: () => ({ database, analyticsEngine, replayEngine, playbackController, sessionRepository, settingsManager, connectionManager, marketScanner }) };
+module.exports = { createMainWindow, initializeServices, shutdownApplication, getServices: () => ({ database, analyticsEngine, replayEngine, playbackController, sessionRepository, settingsManager, connectionManager, marketScanner, scannerConfiguration }) };

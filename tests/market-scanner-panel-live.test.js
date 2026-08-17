@@ -30,7 +30,7 @@ describe('MarketScannerPanel live updates', () => {
     const panel = new MarketScannerPanel('scanner', api);
     panel.render();
     panel.subscribe();
-    expect(api.on).toHaveBeenCalledTimes(9);
+    expect(api.on).toHaveBeenCalledTimes(10);
 
     subscriptions.get('market-tick')({ symbol: 'R_50', lastTick: { quote: 123.45 }, score: 91 });
     expect(panel.markets).toEqual([{ symbol: 'R_50', lastTick: { quote: 123.45 }, score: 91 }]);
@@ -45,7 +45,7 @@ describe('MarketScannerPanel live updates', () => {
     const panel = new MarketScannerPanel('scanner', api);
     panel.subscribe();
     panel.destroy();
-    expect(unsubscribers).toHaveLength(9);
+    expect(unsubscribers).toHaveLength(10);
     unsubscribers.forEach((fn) => expect(fn).toHaveBeenCalledTimes(1));
     expect(panel.bound).toBe(false);
   });
