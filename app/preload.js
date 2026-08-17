@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld('derivAnalytics', {
   settings: { getAll: () => invoke('settings:get-all') },
   scanner: {
     start: () => invoke('scanner:start'), stop: () => invoke('scanner:stop'), getStatus: () => invoke('scanner:get-status'), getMarkets: () => invoke('scanner:get-markets'), setMarkets: (markets) => invoke('scanner:set-markets', markets), refresh: () => invoke('scanner:refresh'),
+    configuration: {
+      get: () => invoke('scanner:config:get'),
+      set: (markets) => invoke('scanner:config:set', markets),
+      reset: () => invoke('scanner:config:reset'),
+    },
     on: subscribeScanner,
   },
 });
