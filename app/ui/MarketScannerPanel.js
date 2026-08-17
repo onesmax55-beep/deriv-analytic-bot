@@ -32,15 +32,17 @@ class MarketScannerPanel {
     if (!this.api?.configuration?.set) throw new Error('Scanner configuration is unavailable');
     const selected = [...this.container.querySelectorAll('[data-market]:checked')].map((input) => input.value);
     if (selected.length === 0) throw new Error('Select at least one market');
-    this.configuredMarkets = await this.api.configuration.set(selected);
-    await this.refresh();
+    const configured = await this.api.configuration.set(selected);
+    this.configuredMarkets = Array.isArray(configured) ? configured : selected;
+    this.renderConfiguration();
     return this.configuredMarkets;
   }
 
   async resetConfiguration() {
     if (!this.api?.configuration?.reset) throw new Error('Scanner configuration is unavailable');
-    this.configuredMarkets = await this.api.configuration.reset();
-    await this.refresh();
+    const configured = await this.api.configuration.reset();
+    this.configuredMarkets = Array.isArray(configured) ? configured : [];
+    this.renderConfiguration();
     return this.configuredMarkets;
   }
 
