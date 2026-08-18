@@ -51,6 +51,11 @@ $('resume').addEventListener('click', async () => { await window.derivAnalytics.
 $('stop').addEventListener('click', async () => { await window.derivAnalytics.replay.stop(); await refreshReplay(); });
 $('refresh').addEventListener('click', refreshSessions);
 
+if (window.AlertCenter && $('alert-center')) {
+  window.alertCenter = new window.AlertCenter($('alert-center'), window.derivAnalytics.alerts);
+  window.alertCenter.initialize();
+}
+
 refreshStatus();
 refreshSessions();
 setInterval(refreshStatus, 1000);
