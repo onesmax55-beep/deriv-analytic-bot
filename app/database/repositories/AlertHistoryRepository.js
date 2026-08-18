@@ -29,7 +29,7 @@ class AlertHistoryRepository {
       ]
     );
 
-    return { id: result.id, ...event, acknowledged: false };
+    return { ...event, id: result.id, acknowledged: false };
   }
 
   async list(options = {}) {
