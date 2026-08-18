@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS analytics_snapshots (
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   tick_count INTEGER,
   confidence INTEGER,
-  snapshot_data TEXT, -- JSON
+  snapshot_data TEXT,
   even_percentage REAL,
   odd_percentage REAL,
   rise_percentage REAL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS signals (
   direction TEXT,
   confidence INTEGER,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  signal_data TEXT, -- JSON
+  signal_data TEXT,
   action_taken TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS insights (
   insight_text TEXT NOT NULL,
   type TEXT,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  severity TEXT, -- info, warning, critical
+  severity TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -77,15 +77,20 @@ CREATE TABLE IF NOT EXISTS alerts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id TEXT,
   message TEXT NOT NULL,
-  severity TEXT, -- info, success, warning, error, critical
+  severity TEXT,
   alert_type TEXT,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   dismissed INTEGER DEFAULT 0,
+  rule_id TEXT,
+  market TEXT,
+  alert_data TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_session ON alerts(session_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp);
+CREATE INDEX IF NOT EXISTS idx_alerts_rule ON alerts(rule_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_market ON alerts(market);
 
 -- Sessions
 CREATE TABLE IF NOT EXISTS sessions (
@@ -93,13 +98,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   end_time DATETIME,
   symbol TEXT NOT NULL,
-  status TEXT, -- active, paused, closed
+  status TEXT,
   tick_count INTEGER DEFAULT 0,
   confidence_avg REAL,
   disconnections INTEGER DEFAULT 0,
   alerts_count INTEGER DEFAULT 0,
   signals_count INTEGER DEFAULT 0,
-  session_data TEXT, -- JSON metadata
+  session_data TEXT,
   version TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -111,7 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_symbol ON sessions(symbol);
 CREATE TABLE IF NOT EXISTS watchlists (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
-  symbols TEXT NOT NULL, -- JSON array
+  symbols TEXT NOT NULL,
   description TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -122,7 +127,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   key TEXT NOT NULL UNIQUE,
   value TEXT,
-  type TEXT, -- string, integer, boolean, json
+  type TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -138,11 +143,11 @@ CREATE TABLE IF NOT EXISTS reports (
   start_time DATETIME,
   end_time DATETIME,
   symbol TEXT,
-  format TEXT NOT NULL, -- csv, xlsx, pdf, json
+  format TEXT NOT NULL,
   file_path TEXT,
   tick_count INTEGER,
   file_size INTEGER,
-  status TEXT, -- pending, generated, failed
+  status TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

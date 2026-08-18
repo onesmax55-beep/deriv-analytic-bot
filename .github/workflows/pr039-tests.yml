@@ -1,0 +1,24 @@
+name: PR-039 Tests
+
+on:
+  push:
+    branches:
+      - pr-039-alert-rules-notifications
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Focused PR-039 Jest suite
+        run: npm test -- --runInBand tests/alert-engine.test.js tests/alert-history-repository.test.js
+      - name: Full Jest regression suite
+        run: npm test -- --runInBand
+      - name: ESLint
+        run: npm run lint
