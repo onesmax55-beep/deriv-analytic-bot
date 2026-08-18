@@ -1,37 +1,30 @@
 'use strict';
 const { ipcMain } = require('electron');
-const channels = ['app:get-status','session:list','session:get','replay:start','replay:pause','replay:resume','replay:stop','replay:speed','replay:status','replay:results','settings:get-all','scanner:start','scanner:stop','scanner:get-status','scanner:get-markets','scanner:set-markets','scanner:refresh','scanner:config:get','scanner:config:set','scanner:config:reset'];
+const channels = ['app:get-status','session:list','session:get','replay:start','replay:pause','replay:resume','replay:stop','replay:speed','replay:status','replay:results','settings:get-all','scanner:start','scanner:stop','scanner:get-status','scanner:get-markets','scanner:set-markets','scanner:refresh','scanner:config:get','scanner:config:set','scanner:config:reset','alerts:rules:list','alerts:rules:create','alerts:rules:update','alerts:rules:delete','alerts:history:list','alerts:history:count','alerts:history:acknowledge','alerts:status','alerts:process'];
 const scannerEvents = ['market-tick','analysis-updated','market-active','market-inactive','market-error','markets-changed','starting','started','stopping','stopped'];
-let registered = false; let services = null; let windowRef = null; let scannerListeners = [];
-function requireScanner() { if (!services?.marketScanner) throw new Error('Market scanner is unavailable'); return services.marketScanner; }
-function requireConfiguration() { if (!services?.scannerConfiguration) throw new Error('Scanner configuration is unavailable'); return services.scannerConfiguration; }
-function validateMarkets(markets) {
-  return requireConfiguration().normalize(markets);
+let registered=false, services=null, windowRef=null, scannerListeners=[];
+const requireScanner=()=>{if(!services?.marketScanner)throw new Error('Market scanner is unavailable');return services.marketScanner;};
+const requireConfiguration=()=>{if(!services?.scannerConfiguration)throw new Error('Scanner configuration is unavailable');return services.scannerConfiguration;};
+const requireAlerts=()=>{if(!services?.alertEngine||!services?.alertHistoryRepository)throw new Error('Alert service is unavailable');return services;};
+const validateMarkets=(markets)=>requireConfiguration().normalize(markets);
+const validateRuleId=(id)=>{if(typeof id!=='string'||!id.trim())throw new TypeError('Invalid alert rule id');return id.trim();};
+const validateRule=(rule)=>{if(!rule||typeof rule!=='object'||Array.isArray(rule))throw new TypeError('Alert rule must be an object');return rule;};
+const validateOptions=(options={})=>{if(!options||typeof options!=='object'||Array.isArray(options))throw new TypeError('Alert history options must be an object');return options;};
+async function ensureConnection(){const c=services?.connectionManager;if(!c)throw new Error('Connection manager is unavailable');if(!c.getStatus().connected)await c.connect();}
+function attachScannerEvents(scanner){scannerEvents.forEach((name)=>{const listener=(payload)=>{if(windowRef?.webContents&&!windowRef.isDestroyed())windowRef.webContents.send(`scanner:${name}`,payload);};scanner.on(name,listener);scannerListeners.push({name,listener});});}
+function detachScannerEvents(){const scanner=services?.marketScanner;if(scanner)scannerListeners.forEach(({name,listener})=>scanner.off(name,listener));scannerListeners=[];}
+async function registerIPC(mainWindow,injected){cleanupIPC();services=injected;windowRef=mainWindow;
+  ipcMain.handle('app:get-status',async()=>({name:'Deriv Analytics Pro',version:require('../../package.json').version,databaseConnected:Boolean(services.database?.isConnected),analytics:services.analyticsEngine?.getStatus?.()||null}));
+  ipcMain.handle('session:list',async()=>services.sessionRepository.getAllSessions());
+  ipcMain.handle('session:get',async(_e,id)=>{if(typeof id!=='string'||!id.trim())throw new Error('Invalid session id');return services.sessionRepository.getSession(id);});
+  ipcMain.handle('replay:start',async(_e,ticks,symbol)=>{if(!Array.isArray(ticks)||!ticks.length)throw new Error('Replay ticks are required');return services.playbackController.startReplay(ticks,symbol);});
+  ipcMain.handle('replay:pause',()=>services.playbackController.pauseReplay());ipcMain.handle('replay:resume',()=>services.playbackController.resumeReplay());ipcMain.handle('replay:stop',()=>services.playbackController.stopReplay());ipcMain.handle('replay:speed',(_e,s)=>services.playbackController.setReplaySpeed(s));ipcMain.handle('replay:status',()=>services.playbackController.getReplayStatus());ipcMain.handle('replay:results',()=>services.playbackController.getReplayResults());
+  ipcMain.handle('settings:get-all',()=>services.settingsManager.getAll());
+  ipcMain.handle('scanner:start',async()=>{await ensureConnection();return requireScanner().start(await requireConfiguration().getMarkets());});ipcMain.handle('scanner:stop',()=>requireScanner().stop());ipcMain.handle('scanner:get-status',()=>requireScanner().getStatus());ipcMain.handle('scanner:get-markets',()=>requireScanner().getMarkets());ipcMain.handle('scanner:set-markets',async(_e,m)=>requireConfiguration().setMarkets(validateMarkets(m)));ipcMain.handle('scanner:refresh',()=>requireScanner().refresh());ipcMain.handle('scanner:config:get',()=>requireConfiguration().getMarkets());ipcMain.handle('scanner:config:set',async(_e,m)=>requireConfiguration().setMarkets(validateMarkets(m)));ipcMain.handle('scanner:config:reset',()=>requireConfiguration().reset());
+  ipcMain.handle('alerts:rules:list',()=>requireAlerts().alertEngine.getRules());ipcMain.handle('alerts:rules:create',async(_e,r)=>requireAlerts().alertEngine.addRule(validateRule(r)));ipcMain.handle('alerts:rules:update',async(_e,id,r)=>requireAlerts().alertEngine.updateRule(validateRuleId(id),validateRule(r)));ipcMain.handle('alerts:rules:delete',async(_e,id)=>requireAlerts().alertEngine.removeRule(validateRuleId(id)));
+  ipcMain.handle('alerts:history:list',async(_e,o)=>requireAlerts().alertHistoryRepository.list(validateOptions(o)));ipcMain.handle('alerts:history:count',async(_e,o)=>requireAlerts().alertHistoryRepository.getCount(validateOptions(o)));ipcMain.handle('alerts:history:acknowledge',async(_e,id)=>{if(!Number.isInteger(id)||id<1)throw new TypeError('Alert history id must be a positive integer');return requireAlerts().alertHistoryRepository.acknowledge(id);});
+  ipcMain.handle('alerts:status',()=>({rules:requireAlerts().alertEngine.getRules(),historyAvailable:true,notificationsAvailable:Boolean(services.notificationService?.isAvailable?.())}));ipcMain.handle('alerts:process',async(_e,payload)=>requireAlerts().alertEngine.process(payload));
+  attachScannerEvents(requireScanner());registered=true;
 }
-async function ensureConnection() { const connection = services?.connectionManager; if (!connection) throw new Error('Connection manager is unavailable'); if (!connection.getStatus().connected) await connection.connect(); }
-function attachScannerEvents(scanner) {
-  scannerEvents.forEach((eventName) => {
-    const listener = (payload) => { if (windowRef?.webContents && !windowRef.isDestroyed()) windowRef.webContents.send(`scanner:${eventName}`, payload); };
-    scanner.on(eventName, listener); scannerListeners.push({ eventName, listener });
-  });
-}
-function detachScannerEvents() { const scanner = services?.marketScanner; if (scanner) scannerListeners.forEach(({ eventName, listener }) => scanner.off(eventName, listener)); scannerListeners = []; }
-async function registerIPC(mainWindow, injected) {
-  cleanupIPC(); services = injected; windowRef = mainWindow;
-  ipcMain.handle('app:get-status', async () => ({ name: 'Deriv Analytics Pro', version: require('../../package.json').version, databaseConnected: Boolean(services.database?.isConnected), analytics: services.analyticsEngine?.getStatus?.() || null }));
-  ipcMain.handle('session:list', async () => services.sessionRepository.getAllSessions());
-  ipcMain.handle('session:get', async (_event, sessionId) => { if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('Invalid session id'); return services.sessionRepository.getSession(sessionId); });
-  ipcMain.handle('replay:start', async (_event, ticks, symbol) => { if (!Array.isArray(ticks) || ticks.length === 0) throw new Error('Replay ticks are required'); return services.playbackController.startReplay(ticks, symbol); });
-  ipcMain.handle('replay:pause', () => services.playbackController.pauseReplay()); ipcMain.handle('replay:resume', () => services.playbackController.resumeReplay()); ipcMain.handle('replay:stop', () => services.playbackController.stopReplay()); ipcMain.handle('replay:speed', (_event, speed) => services.playbackController.setReplaySpeed(speed)); ipcMain.handle('replay:status', () => services.playbackController.getReplayStatus()); ipcMain.handle('replay:results', () => services.playbackController.getReplayResults());
-  ipcMain.handle('settings:get-all', () => services.settingsManager.getAll());
-  ipcMain.handle('scanner:start', async () => { await ensureConnection(); return requireScanner().start(await requireConfiguration().getMarkets()); });
-  ipcMain.handle('scanner:stop', () => requireScanner().stop()); ipcMain.handle('scanner:get-status', () => requireScanner().getStatus()); ipcMain.handle('scanner:get-markets', () => requireScanner().getMarkets());
-  ipcMain.handle('scanner:set-markets', async (_event, markets) => requireConfiguration().setMarkets(validateMarkets(markets)));
-  ipcMain.handle('scanner:refresh', () => requireScanner().refresh());
-  ipcMain.handle('scanner:config:get', () => requireConfiguration().getMarkets());
-  ipcMain.handle('scanner:config:set', async (_event, markets) => requireConfiguration().setMarkets(validateMarkets(markets)));
-  ipcMain.handle('scanner:config:reset', () => requireConfiguration().reset());
-  attachScannerEvents(requireScanner()); registered = true;
-}
-function cleanupIPC() { detachScannerEvents(); if (!registered) { services = null; windowRef = null; return; } for (const channel of channels) ipcMain.removeHandler(channel); registered = false; services = null; windowRef = null; }
-module.exports = { registerIPC, cleanupIPC, validateMarkets };
+function cleanupIPC(){detachScannerEvents();if(!registered){services=null;windowRef=null;return;}for(const channel of channels)ipcMain.removeHandler(channel);registered=false;services=null;windowRef=null;}
+module.exports={registerIPC,cleanupIPC,validateMarkets};
