@@ -49,10 +49,16 @@ class LiveAlertIntegration {
       signal: analysis.signal,
       scanner: analysis.scanner,
     })) {
-      if (!snapshot || typeof snapshot !== 'object') continue;
-      push({ type, ...snapshot });
-      if (snapshot.confidence != null) push({ type, confidence: snapshot.confidence, value: snapshot.confidence });
-      if (snapshot.probability != null) push({ type, probability: snapshot.probability });
+      if (snapshot == null) continue;
+      if (typeof snapshot === 'object') {
+        push({ type, ...snapshot });
+        if (snapshot.confidence != null) push({ type, confidence: snapshot.confidence, value: snapshot.confidence });
+        if (snapshot.probability != null) push({ type, probability: snapshot.probability });
+      } else if (type === 'confidence') {
+        push({ type, confidence: snapshot, value: snapshot });
+      } else if (type === 'probability') {
+        push({ type, probability: snapshot });
+      }
     }
 
     for (const [type, snapshot] of Object.entries({
