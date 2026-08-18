@@ -16,7 +16,19 @@
     button { background:#0ea5e9; color:white; border:0; border-radius:6px; padding:9px 14px; cursor:pointer; }
     button.secondary { background:#2d3748; }
     pre { white-space:pre-wrap; overflow:auto; max-height:320px; }
-    #error { color:#f59e0b; min-height:24px; }
+    #error, [data-alert-error] { color:#f59e0b; min-height:24px; }
+    .alert-layout { display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:16px; }
+    .alert-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid #2d3748; }
+    .alert-row:last-child { border-bottom:0; }
+    .alert-row small { display:block; margin-top:4px; color:#94a3b8; }
+    .alert-actions { display:flex; gap:8px; flex-shrink:0; }
+    .muted { color:#94a3b8; }
+    form { display:grid; gap:10px; }
+    input, select { width:100%; box-sizing:border-box; background:#0f1419; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:9px; }
+    label { font-size:13px; color:#94a3b8; }
+    .form-actions { display:flex; gap:8px; margin-top:4px; }
+    .alert-status { margin-bottom:10px; color:#38bdf8; min-height:20px; }
+    @media (max-width: 800px) { .alert-layout { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -45,7 +57,32 @@
       <button id="refresh">Refresh sessions</button>
       <pre id="sessions">Loading…</pre>
     </section>
+    <section class="card" style="margin-top:16px" id="alert-center">
+      <div class="alert-status" data-alert-status>Alert Center · <strong data-alert-count>0</strong> unacknowledged</div>
+      <div data-alert-error></div>
+      <div class="alert-layout">
+        <div>
+          <h2>Create alert rule</h2>
+          <form data-alert-form>
+            <label>Rule name<input name="name" maxlength="80" required placeholder="High confidence signal"></label>
+            <label>Type<select name="type"><option value="confidence">Confidence</option><option value="probability">Probability</option><option value="streak">Streak</option><option value="pattern">Pattern</option></select></label>
+            <label>Symbol<input name="symbol" value="R_100" maxlength="20"></label>
+            <label>Threshold<input name="threshold" type="number" step="any" required value="80"></label>
+            <label>Cooldown (ms)<input name="cooldownMs" type="number" min="0" step="1000" value="60000"></label>
+            <label><input name="enabled" type="checkbox" checked> Enabled</label>
+            <div class="form-actions"><button type="button" data-action="create-alert">Create rule</button><button type="button" class="secondary" data-action="clear-form">Clear</button></div>
+          </form>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><h2>Rules</h2><button class="secondary" data-action="refresh-alerts">Refresh</button></div>
+          <div data-alert-rules><p class="muted">Loading…</p></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><h2>History</h2><div><button class="secondary" data-action="refresh-history">Refresh</button> <button data-action="ack-all">Acknowledge all</button></div></div>
+          <div data-alert-history><p class="muted">Loading…</p></div>
+        </div>
+      </div>
+    </section>
   </main>
+  <script src="../ui/alert-center.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
