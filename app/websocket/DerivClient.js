@@ -152,15 +152,23 @@ class DerivClient extends EventEmitter {
    * Handle incoming message
    */
   handleMessage(message) {
-    // Handle response to a request
+    // Tick subscription messages can carry the original req_id.
+    // Forward every tick to the normal message path so the Scanner receives it.
+    if (message.tick) {
+      this.emit('message', message);
+    }
+
+    // Handle response to a normal request.
     if (message.req_id && this.requestCallbacks.has(message.req_id)) {
       const callback = this.requestCallbacks.get(message.req_id);
       callback(message);
       return;
     }
 
-    // Emit for subscription messages
-    this.emit('message', message);
+    // Forward all other messages normally.
+    if (!message.tick) {
+      this.emit('message', message);
+    }
   }
 
   /**
