@@ -1,7 +1,17 @@
 /** Market Scanner renderer panel. */
-const { getCountdownSeconds, formatCountdown } = typeof require === 'function'
-  ? require('../scanner/ScannerCountdown')
-  : globalThis.ScannerCountdown;
+
+function getCountdownSeconds(market, localNowMs = Date.now()) {
+  const nextTickAt = Number(market?.nextTickAt);
+  if (!Number.isFinite(nextTickAt)) return null;
+  const serverNowMs = localNowMs + Number(market?.serverOffsetMs || 0);
+  return Math.max(0, Math.ceil(nextTickAt - (serverNowMs / 1000)));
+}
+
+function formatCountdown(seconds) {
+  if (seconds === null || seconds === undefined || !Number.isFinite(Number(seconds))) return '--:--';
+  const total = Math.max(0, Math.floor(Number(seconds)));
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 class MarketScannerPanel {
   constructor(containerId, api = globalThis.derivAnalytics?.scanner) {
@@ -73,6 +83,8 @@ class MarketScannerPanel {
 
   startCountdownTimer() {
     if (this.countdownTimer || typeof setInterval !== 'function') return;
+    const nodes = this.container?.querySelectorAll?.('.scanner-countdown[data-symbol]') || [];
+    if (!nodes.length) return;
     this.countdownTimer = setInterval(() => this.renderCountdowns(), 1000);
     this.renderCountdowns();
   }
@@ -107,8 +119,9 @@ class MarketScannerPanel {
   renderTable() {
     const body = this.container?.querySelector('tbody');
     if (!body) return;
-    body.innerHTML = this.markets.map((m, i) => `<tr><td>${m.rank ?? i + 1}</td><td>${this._escape(m.symbol)}</td><td>${this._escape(m.lastTick?.quote ?? '')}</td><td><span class="scanner-countdown" data-symbol="${this._escape(m.symbol)}">${formatCountdown(getCountdownSeconds(m))}</span></td><td>${this._escape(m.ranking?.score ?? m.score ?? '')}</td><td>${this._escape(m.ranking?.confidence ?? m.confidence ?? '')}</td><td>${this._escape(m.signal ?? m.dominantSignal ?? '')}</td><td>${this._escape(m.updatedAt ?? '')}</td></tr>`).join('') || '<tr><td colspan="8">No markets configured</td></tr>';
+    body.innerHTML = this.markets.map((m, i) => `<tr><td>${m.rank ?? i + 1}</td><td>${this._escape(m.symbol)}</td><td>${this._escape(m.lastTick?.quote ?? '')}</td><td><span class="scanner-countdown" data-symbol="${this._escape(m.symbol)}" aria-label="Next tick countdown">${formatCountdown(getCountdownSeconds(m))}</span></td><td>${this._escape(m.ranking?.score ?? m.score ?? '')}</td><td>${this._escape(m.ranking?.confidence ?? m.confidence ?? '')}</td><td>${this._escape(m.signal ?? m.dominantSignal ?? '')}</td><td>${this._escape(m.updatedAt ?? '')}</td></tr>`).join('') || '<tr><td colspan="8">No markets configured</td></tr>';
     this.renderCountdowns();
+    this.startCountdownTimer();
   }
 
   render() {
