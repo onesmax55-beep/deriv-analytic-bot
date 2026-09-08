@@ -194,6 +194,7 @@ class MarketScanner extends EventEmitter {
       tickCount: market.tickCount,
       lastTick: market.lastTick && { ...market.lastTick },
       tickIntervalSeconds: market.tickIntervalSeconds,
+      serverOffsetMs: market.serverOffsetMs,
       nextTickAt: market.nextTickAt,
       countdownSeconds,
       error: market.error,
