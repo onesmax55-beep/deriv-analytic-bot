@@ -5,6 +5,7 @@
 
 const EventEmitter = require('events');
 const MarketAnalytics = require('./MarketAnalytics');
+const { observeTick, getCountdownSeconds } = require('./ScannerCountdown');
 
 const DEFAULT_SYMBOLS = ['R_50', 'R_75', 'R_100', 'R_200'];
 
@@ -120,6 +121,8 @@ class MarketScanner extends EventEmitter {
       if (market) {
         market.status = 'inactive';
         market.unsubscribedAt = Date.now();
+        market.nextTickAt = null;
+        market.countdownSeconds = null;
       }
       this.emit('market-inactive', this.getMarket(symbol));
     }
@@ -141,10 +144,13 @@ class MarketScanner extends EventEmitter {
     const symbol = this.normalizeSymbol(tick && tick.symbol);
     if (!symbol || !this.symbols.has(symbol)) return;
     const market = this.ensureMarket(symbol);
+    const localNowMs = Date.now();
+    observeTick(market, tick, localNowMs);
     market.lastTick = { symbol, quote: tick.quote, time: tick.time };
     market.tickCount += 1;
-    market.updatedAt = Date.now();
+    market.updatedAt = localNowMs;
     market.analytics.addTick(tick.quote);
+    market.countdownSeconds = getCountdownSeconds(market, localNowMs);
     const snapshot = this.getMarket(symbol);
     this.emit('market-tick', { market: snapshot, tick: { ...market.lastTick }, analysis: snapshot.analysis });
     this.emit('analysis-updated', { symbol, analysis: snapshot.analysis });
@@ -161,6 +167,10 @@ class MarketScanner extends EventEmitter {
         tickCount: 0,
         lastTick: null,
         error: null,
+        tickIntervalSeconds: null,
+        serverOffsetMs: 0,
+        nextTickAt: null,
+        countdownSeconds: null,
         analytics: new MarketAnalytics({ symbol, analyzerOptions: this.analyzerOptions }),
       });
     }
@@ -174,6 +184,7 @@ class MarketScanner extends EventEmitter {
   getMarket(symbol) {
     const market = this.markets.get(this.normalizeSymbol(symbol));
     if (!market) return null;
+    const countdownSeconds = getCountdownSeconds(market);
     return {
       symbol: market.symbol,
       status: market.status,
@@ -182,6 +193,9 @@ class MarketScanner extends EventEmitter {
       updatedAt: market.updatedAt,
       tickCount: market.tickCount,
       lastTick: market.lastTick && { ...market.lastTick },
+      tickIntervalSeconds: market.tickIntervalSeconds,
+      nextTickAt: market.nextTickAt,
+      countdownSeconds,
       error: market.error,
       analysis: market.analytics.getSnapshot(),
     };
