@@ -1,9 +1,12 @@
 /**
  * Deriv WebSocket Protocol
- * Defines constants and utilities for Deriv API communication
+ * Defines constants and utilities for Deriv API communication.
+ *
+ * The public market-data endpoint requires no authentication and is the
+ * current endpoint for read-only tick streaming.
  */
 
-const DERIV_API_URL = 'wss://ws.derivws.com/websockets/v3';
+const DERIV_API_URL = 'wss://api.derivws.com/trading/v1/options/ws/public';
 
 const MESSAGE_TYPES = {
   TICKS: 'ticks',
@@ -12,6 +15,7 @@ const MESSAGE_TYPES = {
   PING: 'ping',
   SUBSCRIBE: 'subscribe',
   UNSUBSCRIBE: 'unsubscribe',
+  FORGET: 'forget',
   ACTIVE_SYMBOLS: 'active_symbols',
   SYMBOL_PROPERTIES: 'symbol_properties',
   ERROR: 'error',
@@ -50,9 +54,6 @@ const ERROR_CODES = {
   PROTOCOL_ERROR: 'ProtocolError',
 };
 
-/**
- * Generate a numeric request ID as required by the Deriv API contract.
- */
 function generateRequestId() {
   return Math.floor(Math.random() * 1000000000);
 }
