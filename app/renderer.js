@@ -10,8 +10,36 @@ async function refreshStatus() {
     $('symbol').textContent = status.analytics?.symbol || 'R_100';
     $('ticks').textContent = status.analytics?.tickCount ?? 0;
     $('confidence').textContent = `${status.analytics?.confidence ?? 0}%`;
+    const scanner = await window.derivAnalytics.scanner.getStatus();
+    $('scanner').textContent = scanner.running ? `Live (${scanner.marketCount})` : 'Stopped';
+    const connectionState = scanner.running || scanner.marketCount > 0 ? 'Connected' : 'Disconnected';
+    $('connection').textContent = connectionState;
   } catch (error) {
     $('error').textContent = error.message;
+    if ($('connection')) $('connection').textContent = 'Error';
+    if ($('scanner')) $('scanner').textContent = 'Error';
+  }
+}
+
+async function startLiveScanner() {
+  try {
+    $('connection').textContent = 'Connecting…';
+    $('scanner').textContent = 'Starting…';
+    await window.derivAnalytics.scanner.start();
+    $('error').textContent = '';
+    await refreshStatus();
+  } catch (error) {
+    $('error').textContent = `Live data: ${error.message}`;
+    await refreshStatus();
+  }
+}
+
+async function stopLiveScanner() {
+  try {
+    await window.derivAnalytics.scanner.stop();
+    await refreshStatus();
+  } catch (error) {
+    $('error').textContent = `Scanner: ${error.message}`;
   }
 }
 
@@ -34,6 +62,8 @@ async function refreshSessions() {
   }
 }
 
+$('connect').addEventListener('click', startLiveScanner);
+$('scanner-stop').addEventListener('click', stopLiveScanner);
 $('demo').addEventListener('click', async () => {
   const ticks = Array.from({ length: 40 }, (_, i) => ({
     value: 100 + Math.sin(i / 3) * 2 + (i % 10) / 100,
@@ -58,5 +88,5 @@ if (window.AlertCenter && $('alert-center')) {
 
 refreshStatus();
 refreshSessions();
-setInterval(refreshStatus, 1000);
-setInterval(refreshReplay, 1000);
+setInterval(refreshStatus, 2000);
+setInterval(refreshReplay, 5000);
