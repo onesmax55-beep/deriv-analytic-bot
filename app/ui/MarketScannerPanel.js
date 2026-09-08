@@ -1,4 +1,8 @@
 /** Market Scanner renderer panel. */
+const { getCountdownSeconds, formatCountdown } = typeof require === 'function'
+  ? require('../scanner/ScannerCountdown')
+  : globalThis.ScannerCountdown;
+
 class MarketScannerPanel {
   constructor(containerId, api = globalThis.derivAnalytics?.scanner) {
     this.container = document.getElementById(containerId);
@@ -9,6 +13,7 @@ class MarketScannerPanel {
     this.running = false;
     this.unsubscribe = [];
     this.bound = false;
+    this.countdownTimer = null;
   }
 
   async start() { await this.api?.start(); return this.refresh(); }
@@ -63,9 +68,31 @@ class MarketScannerPanel {
     this.unsubscribe.push(this.api.on('market-error', (payload) => { this.renderStatus(`Error: ${payload?.error || 'Market error'}`); }));
     this.unsubscribe.push(this.api.on('markets-changed', () => { this.refresh().catch((error) => this.renderStatus(`Error: ${error.message}`)); }));
     this.bound = true;
+    this.startCountdownTimer();
   }
 
-  destroy() { this.unsubscribe.splice(0).forEach((fn) => { try { fn?.(); } catch (_) {} }); this.bound = false; }
+  startCountdownTimer() {
+    if (this.countdownTimer || typeof setInterval !== 'function') return;
+    this.countdownTimer = setInterval(() => this.renderCountdowns(), 1000);
+    this.renderCountdowns();
+  }
+
+  renderCountdowns() {
+    if (!this.container) return;
+    for (const node of this.container.querySelectorAll('.scanner-countdown[data-symbol]')) {
+      const symbol = node.getAttribute('data-symbol');
+      const market = this.markets.find((item) => item.symbol === symbol);
+      node.textContent = market ? formatCountdown(getCountdownSeconds(market)) : '--:--';
+    }
+  }
+
+  destroy() {
+    this.unsubscribe.splice(0).forEach((fn) => { try { fn?.(); } catch (_) {} });
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    this.countdownTimer = null;
+    this.bound = false;
+  }
+
   renderStatus(message) { const node = this.container?.querySelector('.market-scanner-status'); if (node) node.textContent = message || (this.running ? 'Running' : 'Stopped'); }
 
   renderConfiguration() {
@@ -80,12 +107,13 @@ class MarketScannerPanel {
   renderTable() {
     const body = this.container?.querySelector('tbody');
     if (!body) return;
-    body.innerHTML = this.markets.map((m, i) => `<tr><td>${m.rank ?? i + 1}</td><td>${this._escape(m.symbol)}</td><td>${this._escape(m.lastTick?.quote ?? '')}</td><td>${this._escape(m.ranking?.score ?? m.score ?? '')}</td><td>${this._escape(m.ranking?.confidence ?? m.confidence ?? '')}</td><td>${this._escape(m.signal ?? m.dominantSignal ?? '')}</td><td>${this._escape(m.updatedAt ?? '')}</td></tr>`).join('') || '<tr><td colspan="7">No markets configured</td></tr>';
+    body.innerHTML = this.markets.map((m, i) => `<tr><td>${m.rank ?? i + 1}</td><td>${this._escape(m.symbol)}</td><td>${this._escape(m.lastTick?.quote ?? '')}</td><td><span class="scanner-countdown" data-symbol="${this._escape(m.symbol)}">${formatCountdown(getCountdownSeconds(m))}</span></td><td>${this._escape(m.ranking?.score ?? m.score ?? '')}</td><td>${this._escape(m.ranking?.confidence ?? m.confidence ?? '')}</td><td>${this._escape(m.signal ?? m.dominantSignal ?? '')}</td><td>${this._escape(m.updatedAt ?? '')}</td></tr>`).join('') || '<tr><td colspan="8">No markets configured</td></tr>';
+    this.renderCountdowns();
   }
 
   render() {
     if (!this.container) return;
-    this.container.innerHTML = `<section class="market-scanner-panel" aria-label="Market Scanner"><header><h2>Market Scanner</h2><div><button data-action="start" ${this.running ? 'disabled' : ''}>Start</button><button data-action="stop" ${this.running ? '' : 'disabled'}>Stop</button><button data-action="refresh">Refresh</button></div></header><div class="market-scanner-status">${this.running ? 'Running' : 'Stopped'}</div><div class="market-scanner-configuration" aria-label="Scanner market configuration"></div><table><thead><tr><th>Rank</th><th>Market</th><th>Price</th><th>Score</th><th>Confidence</th><th>Signal</th><th>Updated</th></tr></thead><tbody></tbody></table></section>`;
+    this.container.innerHTML = `<section class="market-scanner-panel" aria-label="Market Scanner"><header><h2>Market Scanner</h2><div><button data-action="start" ${this.running ? 'disabled' : ''}>Start</button><button data-action="stop" ${this.running ? '' : 'disabled'}>Stop</button><button data-action="refresh">Refresh</button></div></header><div class="market-scanner-status">${this.running ? 'Running' : 'Stopped'}</div><div class="market-scanner-configuration" aria-label="Scanner market configuration"></div><table><thead><tr><th>Rank</th><th>Market</th><th>Price</th><th>Countdown</th><th>Score</th><th>Confidence</th><th>Signal</th><th>Updated</th></tr></thead><tbody></tbody></table></section>`;
     this.renderConfiguration();
     this.renderTable();
     this.subscribe();
